@@ -1,0 +1,75 @@
+{
+  "info": {
+    "name": "Kobo CSV import",
+    "description": "Run with the Collection Runner and a CSV data file. Each CSV row becomes one KoboToolbox submission. See postman/README.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Submit row to Kobo",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Build the submission from the current CSV row (same template as Power Automate)",
+              "const row = pm.iterationData.toObject();",
+              "const v = k => (row[k] === undefined || row[k] === null) ? \"\" : row[k].toString();",
+              "",
+              "const body = {",
+              "  id: pm.environment.get(\"asset_uid\"),",
+              "  submission: {",
+              "    geo: {",
+              "      p0_label: v(\"geo/p0_label\"),",
+              "      p1: v(\"geo/p1\"),",
+              "      p2: v(\"geo/p2\"),",
+              "      p3: v(\"geo/p3\"),",
+              "      system_id: v(\"geo/system_id\"),",
+              "      ccp_id: v(\"context/ccp_id\"),",
+              "      parameters: v(\"compliance_summary/final_grp/calculation_001\").split(\"%20\").join(\" \")",
+              "    },",
+              "    meta: {",
+              "      // Reuse _uuid so a re-run is rejected as duplicate; otherwise make a new one",
+              "      instanceID: \"uuid:\" + (v(\"_uuid\") || pm.variables.replaceIn(\"{{$guid}}\"))",
+              "    }",
+              "  }",
+              "};",
+              "",
+              "pm.variables.set(\"payload\", JSON.stringify(body));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const n = pm.info.iteration + 1;",
+              "pm.test(`Row ${n}: HTTP ${pm.response.code}`, () => {",
+              "  pm.expect(pm.response.code).to.be.oneOf([200, 201, 202]);",
+              "});",
+              "if (pm.response.text().toLowerCase().includes(\"duplicate\")) {",
+              "  console.log(`Row ${n}: duplicate, already in Kobo`);",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Token {{kobo_token}}" },
+          { "key": "Accept", "value": "application/json" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{{payload}}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{kobo_url}}"
+      }
+    }
+  ]
+}

@@ -9,6 +9,7 @@ the same way the Power Automate flow does.
 scripts/kobo_import.py              download, fill template, post
 templates/submission.json           submission structure (Power Automate syntax works)
 samples/sample.csv                  test data for a dry run
+postman/                            manual alternative with Postman (see postman/README.md)
 ```
 
 ## Template
