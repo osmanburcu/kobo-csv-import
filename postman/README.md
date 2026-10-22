@@ -1,7 +1,8 @@
 # Import a CSV into KoboToolbox with Postman
 
 A manual alternative to the GitHub Action. Postman sends one submission to Kobo
-for every row in a CSV file, using the same JSON structure as the Power Automate flow.
+for every row in a CSV file. The JSON is built from the CSV's own column names,
+so any form works without editing the collection.
 
 Use this for one-off imports you want to check by eye. Use the GitHub Action
 (see the main [README](../README.md)) for automatic imports from SharePoint or Google Drive.
@@ -23,6 +24,8 @@ Use this for one-off imports you want to check by eye. Use the GitHub Action
    | `kobo_url` | `https://kc.kobotoolbox.org/api/v1/submissions` (EU server: `https://kc-eu.kobotoolbox.org/api/v1/submissions`) |
    | `asset_uid` | UID of the form receiving the data, e.g. `aNAmpcbU9opH9xA6NtbL3x` |
    | `kobo_token` | Your Kobo API token (Account settings → Security). Kept as a secret value |
+   | `column_map` | Optional. Renames columns, see [Column names → JSON](#column-names--json). Default `{}` |
+   | `skip_columns` | Optional. Comma-separated columns not to send, e.g. `start,end,deviceid` |
 
 3. Select the **Kobo** environment in the top-right corner.
 
@@ -30,22 +33,49 @@ Never put the token in the collection itself or share the environment file once 
 
 ## 2. Prepare the CSV
 
-- **Column names must be the XML names** of the source form, for example
-  `geo/p1` or `context/ccp_id`. When exporting from Kobo, choose
-  *XML values and headers* and group separator `/`.
+- **Column names must be the XML names**, with groups separated by `/`, for example
+  `geo/p1`. When exporting from Kobo, choose *XML values and headers* and group
+  separator `/`. Names must match the questions of the form you import into
+  (or be renamed with `column_map`).
 - **Use commas as the separator.** Kobo exports often use `;`. Open the file in
   Excel and save it as *CSV (Comma delimited)*, or change the separator in the export settings.
 - **Save as UTF-8** so letters such as ş, ğ, ı stay correct.
 - **Keep the `_uuid` column.** It becomes the `instanceID`, so Kobo rejects a row
   that was already imported instead of creating a duplicate. Rows without `_uuid`
-  get a new random ID.
+  (or `meta/instanceID`) get a new random ID.
 
-Expected columns:
+## Column names → JSON
 
+Every column becomes a field, and each `/` in its name becomes a level in the JSON:
+
+| CSV column | Value | Sent as |
+|---|---|---|
+| `geo/p1` | Sahinbey | `"geo": { "p1": "Sahinbey" }` |
+| `geo/p2` | *(empty)* | not sent, treated as unanswered |
+| `compliance_summary/final_grp/calculation_001` | pH%206.8 | `"compliance_summary": { "final_grp": { "calculation_001": "pH 6.8" } }` |
+| `_uuid` | 6b1f… | `"meta": { "instanceID": "uuid:6b1f…" }` |
+
+Rules:
+
+- Columns starting with `_` (`_id`, `_submission_time`, `_validation_status`, …),
+  `formhub/…` and `meta/…` are Kobo metadata and are not sent as answers.
+- Empty cells are left out.
+- `%20` in a value is turned into a space.
+- Columns listed in `skip_columns` are left out.
+
+**Importing into a form with different names or groups:** set `column_map` to a JSON
+object of `"CSV column": "target name"`. Columns not in the map keep their name.
+For example, this is the mapping the original Power Automate flow used:
+
+```json
+{
+  "context/ccp_id": "geo/ccp_id",
+  "compliance_summary/final_grp/calculation_001": "geo/parameters"
+}
 ```
-geo/p0_label, geo/p1, geo/p2, geo/p3, geo/system_id, context/ccp_id,
-compliance_summary/final_grp/calculation_001, _uuid
-```
+
+Repeat groups cannot be imported this way. A Kobo CSV export puts them in separate
+sheets or files, so only non-repeating questions are sent.
 
 ## 3. Run
 
@@ -72,20 +102,9 @@ Each row appears as a test named `Row N: HTTP <code>`.
 
 Open **Console** (bottom bar) to see the exact request body and Kobo's reply for any row.
 
-## Changing the fields
-
-The JSON is built in the request's **Scripts → Pre-request** tab. To add a field,
-add a line inside `geo` (or a new group), reading the CSV column with `v("column/name")`:
-
-```javascript
-geo: {
-  p1: v("geo/p1"),
-  new_field: v("geo/new_field"),   // added
-  ...
-}
-```
-
-The keys on the left must match the target form's question names and groups.
+To see the exact JSON a row produces without sending it, open the request's
+**Scripts → Pre-request** tab, add `console.log(pm.variables.get("payload"))` at the
+end, and run with an invalid `kobo_url` such as `http://localhost:1`.
 
 ## Running without the Postman app (Newman)
 
