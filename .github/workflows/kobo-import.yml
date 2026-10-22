@@ -1,0 +1,76 @@
+name: Import CSV into KoboToolbox
+
+on:
+  # Run by hand from the Actions tab
+  workflow_dispatch:
+    inputs:
+      source:
+        description: Where the CSV is stored
+        type: choice
+        options: [sharepoint, gdrive, repo]
+        default: sharepoint
+      file:
+        description: "SharePoint: sharing link or path in the library (Imports/data.csv). Drive: file ID or link. Repo: path."
+        required: true
+      template:
+        description: JSON template of the submission
+        default: templates/submission.json
+      asset_uid:
+        description: Kobo form (asset) UID - leave empty to use the "id" in the template
+        required: false
+      dry_run:
+        description: Only build the JSON, do not send to Kobo
+        type: boolean
+        default: false
+
+  # Run from Power Automate / any HTTP client:
+  # POST https://api.github.com/repos/<owner>/<repo>/dispatches
+  # {"event_type": "kobo-import", "client_payload": {"source": "sharepoint", "file": "Imports/data.csv"}}
+  repository_dispatch:
+    types: [kobo-import]
+
+concurrency:
+  group: kobo-import
+  cancel-in-progress: false
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Import rows
+        env:
+          SOURCE: ${{ inputs.source || github.event.client_payload.source || 'sharepoint' }}
+          FILE: ${{ inputs.file || github.event.client_payload.file }}
+          TEMPLATE: ${{ inputs.template || github.event.client_payload.template || 'templates/submission.json' }}
+          ASSET_UID: ${{ inputs.asset_uid || github.event.client_payload.asset_uid }}
+          DRY_RUN: ${{ inputs.dry_run || github.event.client_payload.dry_run || 'false' }}
+          KOBO_TOKEN: ${{ secrets.KOBO_TOKEN }}
+          KOBO_SUBMISSION_URL: ${{ vars.KOBO_SUBMISSION_URL }}
+          # SharePoint (Microsoft Graph app registration)
+          MS_TENANT_ID: ${{ secrets.MS_TENANT_ID }}
+          MS_CLIENT_ID: ${{ secrets.MS_CLIENT_ID }}
+          MS_CLIENT_SECRET: ${{ secrets.MS_CLIENT_SECRET }}
+          SHAREPOINT_SITE: ${{ vars.SHAREPOINT_SITE }}
+          # Google Drive (service account key JSON)
+          GDRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}
+        run: python scripts/kobo_import.py
+
+      - name: Upload results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kobo-import-results
+          path: output/
+          retention-days: 14

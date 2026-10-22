@@ -1,0 +1,17 @@
+{
+  "id": "aNAmpcbU9opH9xA6NtbL3x",
+  "submission": {
+    "geo": {
+      "p0_label": "@{triggerBody()?['geo/p0_label']}",
+      "p1": "@{triggerBody()?['geo/p1']}",
+      "p2": "@{triggerBody()?['geo/p2']}",
+      "p3": "@{triggerBody()?['geo/p3']}",
+      "system_id": "@{triggerBody()?['geo/system_id']}",
+      "ccp_id": "@{triggerBody()?['context/ccp_id']}",
+      "parameters": "@{replace(triggerBody()?['compliance_summary/final_grp/calculation_001'],'%20', ' ')}"
+    },
+    "meta": {
+      "instanceID": "@{concat('uuid:', triggerBody()?['_uuid'])}"
+    }
+  }
+}
