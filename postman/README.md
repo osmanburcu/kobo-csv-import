@@ -5,7 +5,7 @@ for every row in a CSV file. The JSON is built from the CSV's own column names,
 so any form works without editing the collection.
 
 Use this for one-off imports you want to check by eye. Use the GitHub Action
-(see the main [README](../README.md)) for automatic imports from SharePoint or Google Drive.
+(see the main [README](../README.md)) for automatic imports from SharePoint or Google Drive. (Currenty under development, please don't use)
 
 ## Files
 
