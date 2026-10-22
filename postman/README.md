@@ -82,8 +82,9 @@ sheets or files, so only non-repeating questions are sent.
 1. Right-click the **Kobo CSV import** collection → **Run collection**.
 2. Under **Data**, select your CSV file and click **Preview** to check the columns are read correctly.
 3. Set **Delay** to `200` ms.
-4. Turn on **Persist responses for a session** so you can open each row's reply from Kobo.
-5. Click **Run Kobo CSV import**.
+4. Select the environment from the right corner 
+5. Turn on **Persist responses for a session** so you can open each row's reply from Kobo.
+6. Click **Run Kobo CSV import**.
 
 **Test first:** set **Iterations** to `1` to send just the first row, then check
 the submission in Kobo before running the whole file.
