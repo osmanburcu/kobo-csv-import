@@ -11,25 +11,30 @@ Use this for one-off imports you want to check by eye. Use the GitHub Action
 
 | File | What it is |
 |---|---|
-| `kobo-import.postman_collection.json` | The request, with a script that builds the JSON from each CSV row |
-| `kobo.postman_environment.json` | Kobo URL, form UID and your API token |
+| `kobo-import.postman_collection.json` | The request, a script that builds the JSON from each CSV row, and the settings below |
+
+All settings are **collection variables**, so no Postman environment has to be selected.
 
 ## 1. Import into Postman
 
-1. Open Postman → **Import** → select both JSON files in this folder.
-2. Go to **Environments** → **Kobo** and fill in:
+1. Open Postman → **Import** → select `kobo-import.postman_collection.json`.
+2. Click the **Kobo CSV import** collection → **Variables** tab, fill in the
+   **Current value** column, and click **Save**:
 
    | Variable | Value |
    |---|---|
    | `kobo_url` | `https://kf.kobotoolbox.org/{username}/submission?format=json`, with `{username}` replaced by your Kobo username. Preset to `https://kf.kobotoolbox.org/osmanburcu/submission?format=json` |
    | `asset_uid` | UID of the form receiving the data, e.g. `aNAmpcbU9opH9xA6NtbL3x` |
-   | `kobo_token` | Your Kobo API token (Account settings → Security). Kept as a secret value |
+   | `kobo_token` | Your Kobo API token (Account settings → Security). Put it in **Current value** only |
    | `column_map` | Optional. Renames columns, see [Column names → JSON](#column-names--json). Default `{}` |
    | `skip_columns` | Optional. Comma-separated columns not to send, e.g. `start,end,deviceid` |
 
-3. Select the **Kobo** environment in the top-right corner.
+The **Current value** stays on your computer and is not included when the collection
+is shared or exported. Never put the token in **Initial value**.
 
-Never put the token in the collection itself or share the environment file once the token is filled in.
+**Check:** open the request and hover over `{{kobo_url}}` in the URL bar. It should
+show the full Kobo address. If it is red or says *unresolved*, the variables are not
+saved. Postman then shows *Could not send request*.
 
 ## 2. Prepare the CSV
 
@@ -116,5 +121,5 @@ npm install -g newman
 ```
 
 ```bash
-newman run kobo-import.postman_collection.json -e kobo.postman_environment.json --env-var "kobo_token=YOUR_TOKEN" -d data.csv --delay-request 200
+newman run kobo-import.postman_collection.json --env-var "kobo_token=YOUR_TOKEN" -d data.csv --delay-request 200
 ```

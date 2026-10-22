@@ -18,9 +18,9 @@
               "const row = pm.iterationData.toObject();",
               "",
               "// Optional: rename columns, e.g. {\"context/ccp_id\": \"geo/ccp_id\"}",
-              "const columnMap = JSON.parse(pm.environment.get(\"column_map\") || \"{}\");",
+              "const columnMap = JSON.parse(pm.variables.get(\"column_map\") || \"{}\");",
               "// Optional: extra columns to leave out, comma separated",
-              "const skip = (pm.environment.get(\"skip_columns\") || \"\").split(\",\").map(s => s.trim()).filter(Boolean);",
+              "const skip = (pm.variables.get(\"skip_columns\") || \"\").split(\",\").map(s => s.trim()).filter(Boolean);",
               "",
               "// Kobo export metadata (_id, _submission_time, formhub/uuid, meta/...) is never sent as answers",
               "const isMetadata = name => name.startsWith(\"_\") || name.startsWith(\"formhub/\") || name.startsWith(\"meta/\");",
@@ -43,7 +43,7 @@
               "const originalId = (row[\"meta/instanceID\"] || \"\").toString().replace(/^uuid:/, \"\") || (row[\"_uuid\"] || \"\").toString();",
               "submission.meta = { instanceID: \"uuid:\" + (originalId || pm.variables.replaceIn(\"{{$guid}}\")) };",
               "",
-              "pm.variables.set(\"payload\", JSON.stringify({ id: pm.environment.get(\"asset_uid\"), submission }));"
+              "pm.variables.set(\"payload\", JSON.stringify({ id: pm.variables.get(\"asset_uid\"), submission }));"
             ]
           }
         },
@@ -78,5 +78,12 @@
         "url": "{{kobo_url}}"
       }
     }
+  ],
+  "variable": [
+    { "key": "kobo_url", "value": "https://kf.kobotoolbox.org/osmanburcu/submission?format=json", "type": "string" },
+    { "key": "asset_uid", "value": "aNAmpcbU9opH9xA6NtbL3x", "type": "string" },
+    { "key": "kobo_token", "value": "", "type": "secret" },
+    { "key": "column_map", "value": "{}", "type": "string" },
+    { "key": "skip_columns", "value": "", "type": "string" }
   ]
 }
