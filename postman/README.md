@@ -21,8 +21,8 @@ Use this for one-off imports you want to check by eye. Use the GitHub Action
 
    | Variable | Value |
    |---|---|
-   | `kobo_url` | `https://kf.kobotoolbox.org/{username}/submission?format=json`, with `{username}` replaced by your Kobo username. Preset to `https://kf.kobotoolbox.org/osmanburcu/submission?format=json` |
-   | `asset_uid` | UID of the form receiving the data, e.g. `aNAmpcbU9opH9xA6NtbL3x` |
+   | `kobo_url` | `https://kf.kobotoolbox.org/{username}/submission?format=json`, with `{username}` replaced by your Kobo username. Preset to `https://kf.kobotoolbox.org/Username/submission?format=json` |
+   | `asset_uid` | UID of the form receiving the data, e.g. `aNAmpcbU9opH9xxxxtbL3x` |
    | `kobo_token` | Your Kobo API token (Account settings → Security). Kept as a secret value |
    | `column_map` | Optional. Renames columns, see [Column names → JSON](#column-names--json). Default `{}` |
    | `skip_columns` | Optional. Comma-separated columns not to send, e.g. `start,end,deviceid` |
