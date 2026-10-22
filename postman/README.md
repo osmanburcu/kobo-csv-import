@@ -39,6 +39,7 @@ Never put the token in the collection itself or share the environment file once 
   (or be renamed with `column_map`).
 - **Use commas as the separator.** Kobo exports often use `;`. Open the file in
   Excel and save it as *CSV (Comma delimited)*, or change the separator in the export settings.
+- ** For select multiple questions:** use Export Select Many questions as… 'Single column', if you are creating the column manually use XML values and use space as seperator such 'option1 Option2 Option3' in one column. 
 - **Save as UTF-8** so letters such as ş, ğ, ı stay correct.
 - **Keep the `_uuid` column.** It becomes the `instanceID`, so Kobo rejects a row
   that was already imported instead of creating a duplicate. Rows without `_uuid`
