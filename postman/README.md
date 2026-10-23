@@ -5,7 +5,7 @@ for every row in a CSV file. The JSON is built from the CSV's own column names,
 so any form works without editing the collection.
 
 Use this for one-off imports you want to check by eye. Use the GitHub Action
-(see the main [README](../README.md)) for automatic imports from SharePoint or Google Drive.
+(see the main [README](../README.md)) for automatic imports from SharePoint or Google Drive. (Currently under development, please don't use)
 
 ## Files
 
@@ -23,8 +23,8 @@ All settings are **collection variables**, so no Postman environment has to be s
 
    | Variable | Value |
    |---|---|
-   | `kobo_url` | `https://kf.kobotoolbox.org/{username}/submission?format=json`, with `{username}` replaced by your Kobo username. Preset to `https://kf.kobotoolbox.org/osmanburcu/submission?format=json` |
-   | `asset_uid` | UID of the form receiving the data, e.g. `aNAmpcbU9opH9xA6NtbL3x` |
+   | `kobo_url` | `https://kf.kobotoolbox.org/{username}/submission?format=json`, with `{username}` replaced by your Kobo username. Preset to `https://kf.kobotoolbox.org/Username/submission?format=json` |
+   | `asset_uid` | UID of the form receiving the data, e.g. `aNAmpcbU9opH9xxxxtbL3x` |
    | `kobo_token` | Your Kobo API token (Account settings → Security). Put it in **Current value** only |
    | `column_map` | Optional. Renames columns, see [Column names → JSON](#column-names--json). Default `{}` |
    | `skip_columns` | Optional. Comma-separated columns not to send, e.g. `start,end,deviceid` |
@@ -44,6 +44,7 @@ saved. Postman then shows *Could not send request*.
   (or be renamed with `column_map`).
 - **Use commas as the separator.** Kobo exports often use `;`. Open the file in
   Excel and save it as *CSV (Comma delimited)*, or change the separator in the export settings.
+- **For select multiple questions:** use Export Select Many questions as… 'Single column', if you are creating the column manually use XML values and use space as separator such 'option1 Option2 Option3' in one column.
 - **Save as UTF-8** so letters such as ş, ğ, ı stay correct.
 - **Keep the `_uuid` column.** It becomes the `instanceID`, so Kobo rejects a row
   that was already imported instead of creating a duplicate. Rows without `_uuid`
