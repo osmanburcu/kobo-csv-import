@@ -17,6 +17,8 @@ tick *Add Python to PATH* during setup). Nothing else needs to be installed.
 ## Use
 
 1. **CSV file:** click *Browse…* and choose the file. A preview opens straight away.
+   If the form has repeat groups, also choose the **Repeat CSV files**, see
+   [Repeat groups](#repeat-groups).
 2. Check the settings:
 
    | Field | Value |
@@ -47,7 +49,35 @@ The settings are remembered for next time, except the token, which you enter eac
 - Kobo metadata columns (`_id`, `_submission_time`, `formhub/…`, `meta/…`) are not sent as answers.
 - `_uuid` (or `meta/instanceID`) is used as the submission ID, so importing the same file
   twice gives DUPLICATE instead of a copy. Rows without it get a new ID.
-- Repeat groups are not supported.
+## Repeat groups
+
+Kobo puts repeat groups in separate sheets of its **Excel (XLS) export**: the first
+sheet has the main submissions, and each repeat group has its own sheet. Give the app
+each sheet as a CSV file:
+
+1. In Kobo, export as **XLS** with *XML values and headers*, group separator `/`,
+   and *Include groups in headers* on.
+2. In Excel, save the **first sheet** as CSV. This is the main **CSV file**.
+3. Save **every repeat sheet** as its own CSV, **named exactly like the sheet**
+   (the repeat group's name), e.g. `members.csv`, `visits.csv`. Do not rename or
+   delete the `_index`, `_parent_index` and `_parent_table_name` columns.
+4. In the app, click *Browse…* next to **Repeat CSV files** and select all of them
+   at once (hold Ctrl).
+
+How they are linked:
+
+- A repeat row belongs to the main row whose `_index` equals its `_parent_index`.
+- **Nested repeats** (a repeat inside a repeat) work too: when `_parent_table_name` is the
+  name of another repeat file, the row goes inside that repeat's entry instead.
+- The JSON position comes from the column names, e.g. `hh/members/member_name` puts
+  each entry in `"hh": {"members": [ {...}, {...} ]}`.
+
+Preview shows each repeat group, how many entries it has, where it will be sent, and
+a full JSON example of a row that has repeat entries. It warns about entries whose
+`_parent_index` matches no main row; those are not sent.
+
+**Test first** with *Send first row only* and open the submission in Kobo to check the
+repeat entries are there.
 
 ## Common errors
 

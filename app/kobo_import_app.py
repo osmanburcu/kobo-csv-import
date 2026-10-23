@@ -26,7 +26,9 @@ DEFAULTS = {
     "column_map": "{}",
     "skip_columns": "",
     "delay_ms": "200",
+    "repeat_paths": "",
 }
+PATH_SEPARATOR = " | "  # between repeat file paths in the text box
 
 
 # --------------------------------------------------------------------------
@@ -57,20 +59,105 @@ def is_metadata(column):
     return column.startswith("_") or column.startswith("formhub/") or column.startswith("meta/")
 
 
-def build_submission(row, asset_uid, column_map=None, skip=()):
-    """Turn one CSV row into the JSON Kobo expects."""
-    column_map = column_map or {}
-    submission = {}
+def _norm_index(value):
+    """'3', '3.0' and ' 3 ' all mean row 3 (Excel often adds '.0')."""
+    value = (value or "").strip()
+    try:
+        return str(int(float(value)))
+    except ValueError:
+        return value
+
+
+def _put(node, path, value):
+    """Set node['a']['b']['c'] = value for path 'a/b/c'."""
+    keys = path.split("/")
+    for key in keys[:-1]:
+        if not isinstance(node.get(key), dict):
+            node[key] = {}
+        node = node[key]
+    node[keys[-1]] = value
+
+
+def _add_answers(node, row, column_map, skip, strip_prefix=""):
     for column, value in row.items():
         if is_metadata(column) or column in skip or value.strip() == "":
             continue
-        path = column_map.get(column, column).split("/")
-        node = submission
-        for key in path[:-1]:
-            if not isinstance(node.get(key), dict):
-                node[key] = {}
-            node = node[key]
-        node[path[-1]] = value.replace("%20", " ")
+        name = column_map.get(column, column)
+        if strip_prefix and name.startswith(strip_prefix + "/"):
+            name = name[len(strip_prefix) + 1:]
+        _put(node, name, value.replace("%20", " "))
+
+
+def load_repeats(paths, column_map=None, skip=()):
+    """Read one CSV per repeat group (a sheet of Kobo's Excel export saved as CSV).
+
+    The file name is the repeat group name. Rows are linked to their parent with
+    _parent_index, and _parent_table_name says if the parent is another repeat
+    (nested repeat) or the main sheet.
+    """
+    column_map = column_map or {}
+    tables = []
+    for path in paths:
+        name = os.path.splitext(os.path.basename(path))[0]
+        columns, rows = read_csv(path)
+        names = [column_map.get(c, c).split("/") for c in columns
+                 if not is_metadata(c) and c not in skip]
+        # Repeat path = group path shared by all its questions, e.g. "hh/members"
+        prefix = os.path.commonprefix([n[:-1] for n in names]) if names else []
+        if name in prefix:  # cut sub-groups inside the repeat
+            prefix = prefix[:len(prefix) - prefix[::-1].index(name)]
+        tables.append({"name": name, "file": os.path.basename(path),
+                       "path": "/".join(prefix) or name, "rows": rows})
+
+    table_names = {t["name"] for t in tables}
+    for t in tables:
+        t["children"] = {}
+        for r in t["rows"]:
+            parent = r.get("_parent_table_name", "").strip()
+            parent = parent if parent in table_names and parent != t["name"] else None
+            key = (parent, _norm_index(r.get("_parent_index")))
+            t["children"].setdefault(key, []).append(r)
+    return tables
+
+
+def _add_repeats(node, tables, parent_table, parent_index, parent_path, column_map, skip):
+    for t in tables:
+        entries = []
+        for r in t["children"].get((parent_table, parent_index), []):
+            entry = {}
+            _add_answers(entry, r, column_map, skip, strip_prefix=t["path"])
+            _add_repeats(entry, tables, t["name"], _norm_index(r.get("_index")),
+                         t["path"], column_map, skip)
+            if entry:
+                entries.append(entry)
+        if entries:
+            path = t["path"]
+            if parent_path and path.startswith(parent_path + "/"):
+                path = path[len(parent_path) + 1:]
+            _put(node, path, entries)
+
+
+def main_index(row, row_number):
+    """The _index that repeat rows point to; falls back to the row's position."""
+    return _norm_index(row.get("_index")) or str(row_number)
+
+
+def orphan_count(table, main_rows, tables):
+    """Repeat rows whose parent row cannot be found."""
+    valid = {(None, main_index(r, n)) for n, r in enumerate(main_rows, start=1)}
+    for t in tables:
+        valid.update((t["name"], _norm_index(r.get("_index"))) for r in t["rows"])
+    return sum(len(rows) for key, rows in table["children"].items() if key not in valid)
+
+
+def build_submission(row, asset_uid, column_map=None, skip=(), repeats=(), row_number=1):
+    """Turn one CSV row (plus its repeat rows) into the JSON Kobo expects."""
+    column_map = column_map or {}
+    submission = {}
+    _add_answers(submission, row, column_map, skip)
+    if repeats:
+        _add_repeats(submission, repeats, None, main_index(row, row_number), "",
+                     column_map, skip)
 
     # Reuse the original ID so a re-import is rejected as duplicate
     original = row.get("meta/instanceID", "").replace("uuid:", "") or row.get("_uuid", "")
@@ -139,27 +226,29 @@ def run_app():
 
             self.vars = {}
 
-            def field(row, label, key, show=None, browse=False):
+            def field(row, label, key, show=None, browse=None):
                 ttk.Label(form, text=label).grid(row=row, column=0, sticky="w", **pad)
                 var = tk.StringVar(value=self.settings.get(key, ""))
                 ttk.Entry(form, textvariable=var, show=show).grid(
                     row=row, column=1, sticky="ew", **pad)
                 if browse:
-                    ttk.Button(form, text="Browse…", command=self._browse).grid(
+                    ttk.Button(form, text="Browse…", command=browse).grid(
                         row=row, column=2, **pad)
                 self.vars[key] = var
 
-            field(0, "CSV file", "csv_path", browse=True)
-            field(1, "Kobo URL", "kobo_url")
-            field(2, "Form UID", "asset_uid")
-            field(3, "API token", "token", show="•")
-            field(4, "Column map (JSON)", "column_map")
-            field(5, "Skip columns", "skip_columns")
-            field(6, "Delay between rows (ms)", "delay_ms")
+            field(0, "CSV file", "csv_path", browse=self._browse)
+            field(1, "Repeat CSV files (optional)", "repeat_paths",
+                  browse=self._browse_repeats)
+            field(2, "Kobo URL", "kobo_url")
+            field(3, "Form UID", "asset_uid")
+            field(4, "API token", "token", show="•")
+            field(5, "Column map (JSON)", "column_map")
+            field(6, "Skip columns", "skip_columns")
+            field(7, "Delay between rows (ms)", "delay_ms")
             ttk.Label(form, foreground="gray",
-                      text="The token is not saved. Column map example: "
-                           '{"context/ccp_id": "geo/ccp_id"}').grid(
-                row=7, column=0, columnspan=3, sticky="w", **pad)
+                      text="The token is not saved. Repeat files: one CSV per repeat group, "
+                           "named after the group (e.g. members.csv).").grid(
+                row=8, column=0, columnspan=3, sticky="w", **pad)
 
             buttons = ttk.Frame(self)
             buttons.pack(fill="x", padx=10, pady=4)
@@ -221,6 +310,15 @@ def run_app():
                 self.vars["csv_path"].set(path)
                 self._preview()
 
+        def _browse_repeats(self):
+            paths = filedialog.askopenfilenames(
+                title="Choose the repeat group CSV files (select all of them)",
+                filetypes=[("CSV files", "*.csv"), ("All files", "*.*")])
+            if paths:
+                self.vars["repeat_paths"].set(PATH_SEPARATOR.join(paths))
+                if self.vars["csv_path"].get().strip():
+                    self._preview()
+
         def _read_inputs(self, need_token):
             """Validate the form. Returns a dict or None after showing an error."""
             v = {k: var.get().strip() for k, var in self.vars.items()}
@@ -251,8 +349,15 @@ def run_app():
                 if not v["token"]:
                     messagebox.showerror("Kobo CSV Import", "Enter your Kobo API token.")
                     return None
+            repeat_paths = [p.strip() for p in v["repeat_paths"].split("|") if p.strip()]
+            missing = [p for p in repeat_paths if not os.path.isfile(p)]
+            if missing:
+                messagebox.showerror("Kobo CSV Import",
+                                     "Repeat file not found:\n" + "\n".join(missing))
+                return None
             try:
                 self.columns, self.rows = read_csv(v["csv_path"])
+                v["repeats"] = load_repeats(repeat_paths, v["column_map"], v["skip_columns"])
             except OSError as e:
                 messagebox.showerror("Kobo CSV Import", f"Could not read the CSV:\n{e}")
                 return None
@@ -274,10 +379,30 @@ def run_app():
                 self._write(f"  {c}" + (f"  →  {target}" if target else ""))
             if skipped:
                 self._write(f"\nNot sent ({len(skipped)}): " + ", ".join(skipped))
+
+            names = {t["name"] for t in v["repeats"]}
+            for t in v["repeats"]:
+                parents = {key[0] for key in t["children"]} - {None}
+                where = ("inside " + ", ".join(sorted(parents))) if parents & names \
+                    else "in the main form"
+                self._write(f"\nRepeat group '{t['name']}' ({t['file']}): {len(t['rows'])} "
+                            f"entries, sent as '{t['path']}' {where}")
+                orphans = orphan_count(t, self.rows, v["repeats"])
+                if orphans:
+                    self._write(f"  WARNING: {orphans} entries have a _parent_index that "
+                                f"matches no row, they will not be sent", "failed")
+
             if self.rows:
-                payload = build_submission(self.rows[0], v["asset_uid"],
-                                           v["column_map"], v["skip_columns"])
-                self._write("\nFirst row will be sent as:")
+                # Show a row that has repeat entries, if there is one
+                n, row = 1, self.rows[0]
+                for i, r in enumerate(self.rows, start=1):
+                    if any(k == (None, main_index(r, i)) for t in v["repeats"]
+                           for k in t["children"]):
+                        n, row = i, r
+                        break
+                payload = build_submission(row, v["asset_uid"], v["column_map"],
+                                           v["skip_columns"], v["repeats"], n)
+                self._write(f"\nRow {n} will be sent as:")
                 self._write(json.dumps(payload, indent=2, ensure_ascii=False))
             self.status.configure(text=f"Ready: {len(self.rows)} rows.")
 
@@ -308,7 +433,7 @@ def run_app():
                     self.events.put(("stopped", n - 1))
                     return
                 payload = build_submission(row, v["asset_uid"], v["column_map"],
-                                           v["skip_columns"])
+                                           v["skip_columns"], v["repeats"], n)
                 status, message = post_submission(v["kobo_url"], v["token"], payload)
                 self.events.put(("row", (n, payload["submission"]["meta"]["instanceID"],
                                          status, message)))
