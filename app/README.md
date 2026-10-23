@@ -21,8 +21,8 @@ tick *Add Python to PATH* during setup). Nothing else needs to be installed.
 
    | Field | Value |
    |---|---|
-   | Kobo URL | `https://kf.kobotoolbox.org/{username}/submission?format=json`, with your Kobo username. Preset to `osmanburcu` |
-   | Form UID | UID of the form receiving the data, e.g. `aNAmpcbU9opH9xA6NtbL3x` |
+   | Kobo URL | `https://kf.kobotoolbox.org/{username}/submission?format=json`, with your Kobo username |
+   | Form UID | UID of the form receiving the data, e.g. `aNAmpcbU9opH9xxxxtbL3x` |
    | API token | Your Kobo API token (Account settings → Security) |
    | Column map | Optional. Renames columns, e.g. `{"context/ccp_id": "geo/ccp_id"}`. Leave `{}` if names already match |
    | Skip columns | Optional. Comma-separated columns not to send, e.g. `start,end,deviceid` |
@@ -41,6 +41,8 @@ The settings are remembered for next time, except the token, which you enter eac
 - Column names must be the XML names with `/` between groups. When exporting from Kobo,
   choose *XML values and headers* and group separator `/`.
 - `,`, `;` and tab separators all work. UTF-8 and Excel's Windows encoding both work.
+- **Select multiple questions:** export them as *Single column*. If you create the column
+  yourself, use the XML values separated by spaces in one cell, e.g. `option1 option2 option3`.
 - Empty cells are not sent. `%20` in a value becomes a space.
 - Kobo metadata columns (`_id`, `_submission_time`, `formhub/…`, `meta/…`) are not sent as answers.
 - `_uuid` (or `meta/instanceID`) is used as the submission ID, so importing the same file
